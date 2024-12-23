@@ -1,0 +1,191 @@
+NGINX
+-----
+https://www.youtube.com/watch?v=q8OleYuqntY&t=1218s
+
+
+NGINX as Web Server/Proxy Server
+
+NGINX as Load Balancer(Least Connections, Round Robin, Source IP Hash)
+
+NGINX does Load Balancing, Caching and Security
+
+NGINX Proxy can compress the response which improves load times and reduce
+bandwidth usage. Segmentation - Sending response in chunks.
+
+
+NGINX Configuration
+-------------------
+The main config file is typically named "nginx.conf'
+and is usually located in the "/etc/nginx/' folder
+
+Using a custom syntax comprising: Directives & Blocks
+This sets up the server's behavior
+
+Example:
+--------
+server {
+    listen 80;
+    server _ name example.com wm.example.com;
+
+    location / {
+        root /var/www/example.com;
+        index index. html index.htm;
+    }
+}
+
+
+"location" directive defines how the server
+should process specific types of requests.
+Specify the location that contains your files.
+
+
+Redirect all HTTP requests to HTTPS
+------------------------------------
+server {
+    listen 80;
+    server_name example.com wm.example.com;
+    # Redirect all HTTP requests to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name example.com ww.example.com;
+    
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+   
+    # Security Headers
+    add_header Strict-Transport-Security "max-age=31536000;
+    includeSubDomains" always;
+    #...
+
+    location / {
+        root /var/www/example.com;
+        index index. html index.htm;
+    }
+}
+
+
+
+Configure Load Balancing
+------------------------
+http {
+    upstream myappl {
+        least_conn; #Load Balancing Algorithm
+        server srvl.example.com;
+        server srv2.example.com;
+        server srv3.example.com;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://myappl;
+        }
+    }
+}
+
+
+
+Enable the 'Caching of Responses'
+---------------------------------
+http {
+    proxy_cache_path /data/nginx/cache keys_zone=mycache: 10m;
+    server {
+        proxy_cache mycache ;
+
+        location / {
+            proxy_pass http://localhost: 8000;
+        }
+    }
+}
+
+
+
+NGINX as a K8s Ingress Controller
+---------------------------------
+What is Ingress Controller?
+    A specialized load balancer for managing
+     the ingress (incoming) traffic in Kubernetes.
+
+    It handles the routing to the appropriate services
+     based on rules defined in an Ingress resource.
+
+NGINX Ingress controller acts as load balancer inside the K8s cluster.
+Cloud Platform Load Balancers are NOT publicly accessible.
+Cloud load balancer handles the incoming traffic from the internet.
+Forwards requests to Ingress controller.
+
+Cluster component is never directly exposed when we use NGINX as Ingress Controller.
+Intelligent routing based on path and host matching rules.
+    Example:
+        Request to 'online-cart' goes to 'online-cart Microservice'
+        Request to 'Payment' goes to 'Payment Microservice'
+
+
+
+Apache vs NGINX
+----------------
+
+            Apache                      |               NGINX
+            ------                      |               -----
+Highly customizable and extensible      |   Faster and more lightweight
+                                        |
+Good choice for dynamic content         |   Best suited for high-performance 
+    handling and legacy support         |       environments and serving static content
+                                        |
+                                        |   Simple configuration
+                                        |
+                                        |   More popular in container world
+
+
+NGINX Demo Project with Node.js and Docker
+------------------------------------------
+
+Create FILE: package.json 
+Notes: Configuration to install dependencies "express", "path" 
+
+{
+    "name": "nginx-crash-course",
+    "version": "1.0.0",
+    "description": "A Node.js application serving a static HTML file, used for load balancing with NGINX.",
+    "main": "server.js",
+    "scripts": {
+      "start": "node server.js"
+    },
+    "author": "Your Name",
+    "license": "MIT",
+    "dependencies": {
+      "express": "^4.17.1",
+      "path": "^0.12.7"
+    }
+  }
+
+
+
+1) Install node.js locally from installer which also installs npm.
+2) Terminal
+   > npm install
+
+It installs packages specified in package.json
+
+3) Start the application by
+    Terminal
+    > node server.js
+
+localhost:3000 in browser will load the webpage
+
+
+
+
+Dockerize the application
+--------------------------
+
+
+
+
+
+
