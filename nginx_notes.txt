@@ -165,7 +165,8 @@ Notes: Configuration to install dependencies "express", "path"
   }
 
 
-
+Install Node.js and NPM
+-----------------------
 1) Install node.js locally from installer which also installs npm.
 2) Terminal
    > npm install
@@ -182,10 +183,318 @@ localhost:3000 in browser will load the webpage
 
 
 Dockerize the application
---------------------------
+-------------------------
+1) Create FILE: Dockerfile
+Notes: This will create a node base image to have node
+       and npm installed.
+       Create /app folder and set as working directory.
+       Copy all necessary files from host into the Docker image.
+       
+
+FROM node:23
+
+WORKDIR /app
+
+COPY server.js .
+COPY index.html .
+COPY images ./images
+COPY package.json .
+
+RUN npm install
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]
 
 
 
 
+2) Start Docker
+    Terminal
+    > docker desktop start
+
+3) Build Docker Image
+    Terminal
+    > docker build -t myapp:1.0 .
+
+4) To list the build images
+    Terminal
+    > docker images | grep myapp
+
+5) Run Docker by binding port on the local machine to
+    a port inside the Docker container
+    Terminal
+    > docker run -p 3000:3000 myapp:1.0
+
+6) Check the working of the app in browser Using
+    http://localhost:3000/
+
+7) List all woking containers to get ContainerID of our app
+    Terminal
+    > docker ps
+
+8) Stop the Docker Container using ContainerID
+    Terminal
+    > docker stop 919466ab23e4
+
+9) To Create a multiple instances of our App, we create 
+    multiple containers using "docker-compose.yaml" file.
+
+    Create FILE: docker-compose.yaml
+    Notes: This will create a node base image to have node
+       and npm installed.
+
+    version: '3'
+    services:
+    app1:
+        build: .
+        environment:
+        - APP_NAME=App1
+        ports:
+        - "3001:3000"
+
+    app2:
+        build: .
+        environment:
+        - APP_NAME=App2
+        ports:
+        - "3002:3000"
+
+    app3:
+        build: .
+        environment:
+        - APP_NAME=App3
+        ports:
+        - "3003:3000"
+
+10) Build and Start all the containers of App created using docker-compose.yaml
+    Terminal
+    > docker-compose up --build -d
+
+    For Stoping the containers
+    > docker-compose down
+
+11) Check the working of the app in browser Using
+    http://localhost:3001
+    http://localhost:3002
+    http://localhost:3003
 
 
+
+
+Running the APP using NGINX
+----------------------------
+1) Install NGINX
+    Download NGINX from https://nginx.org/en/download.html
+    Extract the files to a folder
+
+2) Check the NGINX installed version
+    > nginx -v
+
+3) To display version and configuration
+    > nginx -V
+
+4) NGINX Configuration is stored on nginx.conf file.
+    Edit FILE: nginx.cong
+    Notes: This files contains configuration.
+            'worker_processes' controlhow many parallel processes NGINX can run. It directly
+            influences how well it can handle traffic(performance). Allows NGINX to 
+            efficiently use all CPU cores available.
+
+            'worker_connections' specifies how many simultaneous connections(clients served) can be opened per worker_processes.
+
+            'upstream' Block Refers to servers that Nginx forwards requests to. Upstream block defines a group of backend servers
+                    that will handle requests forwarded by Nginx.
+                "upstream" name is based on the flow of data.
+                    Upstream servers = Refers to traffic going from a client toward the source or higher-level infra, in this case application server.
+                    Downstream servers = Traffic going back to the client is "downstream".
+                'least_conn' Algorithm for handling requests.
+                    Algorithm                 |                Best For                         |           Considerations
+                    --------------------------|-------------------------------------------------| -------------------------------------
+                    Round Robin               |Even distribution when all servers are similar   | Simple, default method, doesn't account for server load or speed
+                    Least Connections         |Balancing load based on connection counts        | Ideal when servers handle requests at different speeds
+                    IP Hash                   |Session persistence (sticky sessions)            | Keeps clients on the same server, but fails with server outages
+                    Weighted Round Robin      |Servers with different capacities                | Distributes more traffic to more powerful servers
+                    Weighted Least Connections|Unequal server capacities, dynamic requests      | Considers both load and server strength
+
+            'server' block defines how NGINX should handle requests for a particular domain or IP address.
+                'listen' The IP address and port on which the server will accept requests.
+                'server_name' Which domain or IP address this server block should respond to.
+                'location' The root (/) URL, will apply to all requests unless more specific location blocks are defined.
+                    'proxy_pass' Tells Nginx to "pass" the request to another server, making it act as a reverse proxy (specified in 'upstream')
+                    'proxy_set_header' common Headers that can be forwarded.
+                        When Nginx acts as a reverse proxy, the requests coming to the backend servers originate from Nginx, 
+                        and not directly from the client. As a result, backend servers would see the IP address of
+                        the Nginx server as the source of the request.
+                    'proxy_set_header X-Real-IP $remote_addr;' Sends original IP address of the client to the backend server.
+
+
+
+    worker_processes 1;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include mime.types;
+
+
+
+        upstream nodejs_cluster {
+            least_conn;
+            server 127.0.0.1:3001;
+            server 127.0.0.1:3002;
+            server 127.0.0.1:3003;
+        }
+
+        server {
+            listen 8080;
+            server_name localhost;
+
+            location / {
+                proxy_pass http://nodejs_cluster;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+    }
+
+
+
+5) Run NGINX 
+    Terminal(Powershell or Command Prompt)
+    To Start NGINX
+    > start nginx
+
+    To Stop NGINX
+    > nginx -s stop
+
+    nginx -s stop	        #fast shutdown
+    nginx -s quit	        #graceful shutdown
+    nginx -s reload	        #changing configuration, starting new worker processes with a new configuration, graceful shutdown of old worker processes
+    nginx -s reopen	        #re-opening log files
+
+
+
+Configure HTTPS - Secure Connections using NGINX
+-------------------------------------------------
+1) Generate a self-signed SSL ssl_certificate in folder 'nginx-certs'
+
+    Open GIT Bash
+        $ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx-selfsigned.key -out nginx-selfsigned.crt
+
+
+        'openssl req'   - Generates a certificate request.
+        '-x509'         - Tells OpenSSL to output a certificate in this standard certificate format.
+        '-nodes'        - Tells OpenSSL not to encrypt the private key with a passphrase
+        '-days 365'     - Specifies validity period of the certificate, in this case 1 year.
+        '-newkey rsa:2048' - Creates a 2048-bit RSA key pair, RSA is the most common public-key cryptography algorithm.
+        '-keyout nginx-selfsigned.key' - Specifies the output file for the generated private key, in this case "nginx-selfsigned.key".
+        '-out nginx-selfsigned.crt' - Specifies the output file for the self-signed certificate, in this case "nginx-selfsigned.crt".
+                                        Contains the public key to share with clients.
+
+
+2) Edit the NGINX Configuration stored on nginx.conf file to enable SSL
+    Edit FILE: nginx.cong
+    Notes: This files contains configuration.
+            Change 'listen 8080;' to 'listen 443 ssl;'
+            Include         ssl_certificate /nginx-certs/nginx-selfsigned.crt;
+                            ssl_certificate_key /nginx-certs/nginx-selfsigned.key;
+
+
+    # Main context (this is the global configuration)
+    worker_processes 1;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include mime.types;
+
+        # Upstream block to define the Node.js backend servers
+        upstream nodejs_cluster {
+            least_conn;
+            server 127.0.0.1:3001;
+            server 127.0.0.1:3002;
+            server 127.0.0.1:3003;
+        }
+
+        server {
+            listen 443 ssl; # Listen on port 443 for HTTPS
+            server_name localhost;
+
+            # SSL certificate settings
+            ssl_certificate /Learn/nginx-crash-course/nginx-crash-course/nginx-certs/nginx-selfsigned.crt;
+            ssl_certificate_key /Learn/nginx-crash-course/nginx-crash-course/nginx-certs/nginx-selfsigned.key;
+
+            location / {
+                proxy_pass http://nodejs_cluster;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+    }
+
+
+3) Reload the NGINX to load the new configuration
+    Terminal
+    > nginx -s reload
+
+4) Redirect HTTP to HTTPS
+    Edit FILE: nginx.cong
+    Notes: This files contains configuration.
+            Add another 'server' block to 'listen 80;'.
+                Redirect the 'location' to 'return 301 https://$host$request_uri;'
+
+
+    # Main context (this is the global configuration)
+    worker_processes 1;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include mime.types;
+
+        # Upstream block to define the Node.js backend servers
+        upstream nodejs_cluster {
+            least_conn;
+            server 127.0.0.1:3001;
+            server 127.0.0.1:3002;
+            server 127.0.0.1:3003;
+        }
+
+        server {
+            listen 443 ssl; # Listen on port 443 for HTTPS
+            server_name localhost;
+
+            # SSL certificate settings
+            ssl_certificate /Learn/nginx-crash-course/nginx-crash-course/nginx-certs/nginx-selfsigned.crt;
+            ssl_certificate_key /Learn/nginx-crash-course/nginx-crash-course/nginx-certs/nginx-selfsigned.key;
+
+            location / {
+                proxy_pass http://nodejs_cluster;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+
+        # Optional server block for HTTP to HTTPS redirection
+        server {
+            listen 80;  # Listen on port 80 for HTTP
+            server_name localhost;
+
+            # Redirect all HTTP traffic to HTTPS
+            location / {
+                return 301 https://$host$request_uri;
+            }
+        }
+    }
+
+
+5) Reload the NGINX to load the new configuration
+    Terminal
+    > nginx -s reload
